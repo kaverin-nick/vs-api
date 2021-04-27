@@ -1,14 +1,26 @@
+import {AuthenticationComponent} from '@loopback/authentication';
+import {
+  JWTAuthenticationComponent,
+  RefreshTokenServiceBindings,
+  TokenServiceBindings,
+
+  UserServiceBindings
+} from '@loopback/authentication-jwt';
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
-import {
-  RestExplorerBindings,
-  RestExplorerComponent,
-} from '@loopback/rest-explorer';
 import {RepositoryMixin} from '@loopback/repository';
 import {RestApplication} from '@loopback/rest';
+import {
+  RestExplorerBindings,
+  RestExplorerComponent
+} from '@loopback/rest-explorer';
 import {ServiceMixin} from '@loopback/service-proxy';
 import path from 'path';
+import {DbDataSource} from './datasources';
+import {MyUserRepository} from './repositories';
 import {MySequence} from './sequence';
+import {MyUserService} from './services';
+
 
 export {ApplicationConfig};
 
@@ -40,5 +52,22 @@ export class WakeApiApplication extends BootMixin(
         nested: true,
       },
     };
+    // AUTH
+    // Mount authentication system
+    this.component(AuthenticationComponent);
+    // Mount jwt component
+    this.component(JWTAuthenticationComponent);
+    // Bind datasource
+    this.dataSource(DbDataSource, UserServiceBindings.DATASOURCE_NAME);
+    this.dataSource(DbDataSource, RefreshTokenServiceBindings.DATASOURCE_NAME);
+    // Bind user service and repository
+    this.bind(UserServiceBindings.USER_SERVICE).toClass(MyUserService);
+    this.bind(UserServiceBindings.USER_REPOSITORY).toClass(MyUserRepository);
+    // for jwt access token
+    this.bind(TokenServiceBindings.TOKEN_SECRET).to("VS-API-SECRET-FOR-TOKEN");
+    this.bind(RefreshTokenServiceBindings.REFRESH_SECRET).to("VS-API-SECRET-FOR-REFRESH-TOKEN");
+    // for jwt access token expiration
+    //this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to("<Expiration Time in sec>");
+    //this.bind(RefreshTokenServiceBindings.REFRESH_EXPIRES_IN).to("<Expiration Time in sec>");
   }
 }
