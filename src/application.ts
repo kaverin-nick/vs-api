@@ -52,10 +52,9 @@ export class WakeApiApplication extends BootMixin(
         nested: true,
       },
     };
-    // AUTH
-    // Mount authentication system
+    // Authentication
+    // Mount authenticationsystem & jwt component
     this.component(AuthenticationComponent);
-    // Mount jwt component
     this.component(JWTAuthenticationComponent);
     // Bind datasource
     this.dataSource(DbDataSource, UserServiceBindings.DATASOURCE_NAME);
