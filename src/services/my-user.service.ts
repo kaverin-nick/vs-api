@@ -3,25 +3,15 @@ import {repository} from '@loopback/repository';
 import {HttpErrors} from '@loopback/rest';
 import {securityId, UserProfile} from '@loopback/security';
 import {compare} from 'bcryptjs';
-// User --> MyUser
-import {MyUser, MyUserWithRelations} from '../models';
-// UserRepository --> MyUserRepository
+import {MyUser, MyUserCredentials, MyUserWithRelations} from '../models';
 import {MyUserRepository} from '../repositories';
 
-export type Credentials = {
-  email: string;
-  password: string;
-};
-
-// User --> MyUser
-export class MyUserService implements UserService<MyUser, Credentials> {
+export class MyUserService implements UserService<MyUser, MyUserCredentials> {
   constructor(
-    // UserRepository --> MyUserRepository
     @repository(MyUserRepository) public userRepository: MyUserRepository,
   ) { }
 
-  // User --> MyUser
-  async verifyCredentials(credentials: Credentials): Promise<MyUser> {
+  async verifyCredentials(credentials: MyUserCredentials): Promise<MyUser> {
     const invalidCredentialsError = 'Invalid email or password.';
 
     const foundUser = await this.userRepository.findOne({
@@ -50,7 +40,6 @@ export class MyUserService implements UserService<MyUser, Credentials> {
     return foundUser;
   }
 
-  // User --> MyUser
   convertToUserProfile(user: MyUser): UserProfile {
     return {
       [securityId]: user.id.toString(),
@@ -62,10 +51,7 @@ export class MyUserService implements UserService<MyUser, Credentials> {
 
   async findUserById(id: string): Promise<MyUser & MyUserWithRelations> {
     const userNotfound = 'invalid User';
-    const foundUser = await this.userRepository.findOne({
-      where: {id: id},
-    });
-
+    const foundUser = await this.userRepository.findById(id);
     if (!foundUser) {
       throw new HttpErrors.Unauthorized(userNotfound);
     }

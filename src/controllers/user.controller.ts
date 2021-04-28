@@ -3,7 +3,6 @@ import {
   TokenService
 } from '@loopback/authentication';
 import {
-  Credentials,
   RefreshTokenService,
   RefreshTokenServiceBindings,
   TokenObject,
@@ -54,6 +53,7 @@ export class UserController {
           'application/json': {
             schema: getModelSchemaRef(MyUser, {
               includeRelations: false,
+              title: 'MyUserSafe',
               exclude: MY_USER_HIDDEN_FIELDS
             }),
           },
@@ -75,11 +75,20 @@ export class UserController {
   ): Promise<MyUser> {
     const password = await hash(newUserRequest.password, await genSalt());
     delete (newUserRequest as Partial<MyUserCredentials>).password;
-    const savedUser = await this.userRepository.create(newUserRequest);
-
-    await this.userRepository.userCredentials(savedUser.id).create({password});
-
-    return savedUser;
+    let savedUser;
+    let err;
+    try {
+      savedUser = await this.userRepository.create(newUserRequest);
+      await this.userRepository.userCredentials(savedUser.id).create({password});
+    }
+    catch (e) {
+      savedUser = null;
+      err = e;
+    }
+    if (savedUser)
+      return savedUser;
+    else
+      throw new HttpErrors.Conflict(err);
   }
 
   @post('/users/login', {
@@ -98,24 +107,15 @@ export class UserController {
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(MyUserCredentials, {
-            title: 'Credentials'
-          }),
+          schema: getModelSchemaRef(MyUserCredentials),
         },
       },
-    }) credentials: Credentials,
+    }) credentials: MyUserCredentials,
   ): Promise<TokenObject> {
-    // ensure the user exists, and the password is correct
     const user = await this.userService.verifyCredentials(credentials);
-    // convert a User object into a UserProfile object (reduced set of properties)
-    const userProfile: UserProfile = this.userService.convertToUserProfile(
-      user,
-    );
+    const userProfile: UserProfile = this.userService.convertToUserProfile(user);
     const accessToken = await this.jwtService.generateToken(userProfile);
-    const tokens = await this.refreshService.generateToken(
-      userProfile,
-      accessToken,
-    );
+    const tokens = await this.refreshService.generateToken(userProfile, accessToken);
     return tokens;
   }
 
@@ -163,6 +163,7 @@ export class UserController {
           'application/json': {
             schema: getModelSchemaRef(MyUser, {
               includeRelations: false,
+              title: 'MyUserSafe',
               exclude: MY_USER_HIDDEN_FIELDS
             }),
           },
@@ -171,9 +172,7 @@ export class UserController {
     },
   })
   async me(): Promise<MyUser> {
-    return await this.userService.userRepository.findById(
-      this.userProfile[securityId]
-    );
+    return await this.userService.findUserById(this.userProfile[securityId]);
   }
 
 }
