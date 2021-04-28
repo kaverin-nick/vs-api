@@ -1,9 +1,8 @@
-import {WakeApiApplication} from '../..';
 import {
-  createRestAppClient,
-  givenHttpServerConfig,
-  Client,
+  Client, createRestAppClient,
+  givenHttpServerConfig
 } from '@loopback/testlab';
+import {VsApiApplication} from '../..';
 
 export async function setupApplication(): Promise<AppWithClient> {
   const restConfig = givenHttpServerConfig({
@@ -14,11 +13,15 @@ export async function setupApplication(): Promise<AppWithClient> {
     // port: +process.env.PORT,
   });
 
-  const app = new WakeApiApplication({
+  const app = new VsApiApplication({
     rest: restConfig,
   });
 
   await app.boot();
+
+
+  app.bind('datasources.config.db').to({name: 'db', connector: 'memory'});
+
   await app.start();
 
   const client = createRestAppClient(app);
@@ -27,6 +30,6 @@ export async function setupApplication(): Promise<AppWithClient> {
 }
 
 export interface AppWithClient {
-  app: WakeApiApplication;
+  app: VsApiApplication;
   client: Client;
 }

@@ -3,7 +3,6 @@ import {
   TokenService
 } from '@loopback/authentication';
 import {
-  RefreshTokenService,
   RefreshTokenServiceBindings,
   TokenObject,
   TokenServiceBindings,
@@ -15,7 +14,9 @@ import {
   getModelSchemaRef,
   HttpErrors,
   post,
-  requestBody
+  requestBody,
+  RequestContext,
+  RestBindings
 } from '@loopback/rest';
 import {
   SecurityBindings,
@@ -26,10 +27,22 @@ import {genSalt, hash} from 'bcryptjs';
 import {
   MyUser,
   MyUserCredentials,
-  MyUserTokens, MY_USER_HIDDEN_FIELDS
+  MyUserTokens,
+  MY_USER_HIDDEN_FIELDS
 } from '../models';
-import {MyUserRepository} from '../repositories';
-import {MyUserService} from '../services';
+import {
+  MyRefreshTokenRepository,
+  MyUserRepository
+} from '../repositories';
+import {
+  MyRefreshTokenService,
+  MyUserService
+} from '../services';
+
+const RefreshTokenSchema = getModelSchemaRef(MyUserTokens, {
+  title: 'RefreshToken',
+  exclude: ['accessToken', 'expiresIn']
+})
 
 export class UserController {
   constructor(
@@ -42,8 +55,23 @@ export class UserController {
     @inject(UserServiceBindings.USER_REPOSITORY)
     public userRepository: MyUserRepository,
     @inject(RefreshTokenServiceBindings.REFRESH_TOKEN_SERVICE)
-    public refreshService: RefreshTokenService,
+    public refreshService: MyRefreshTokenService,
+    @inject(RefreshTokenServiceBindings.REFRESH_REPOSITORY)
+    public refreshTokenRepository: MyRefreshTokenRepository,
+    @inject(RestBindings.Http.CONTEXT)
+    public context: RequestContext
   ) { }
+
+  getUserAgent(): string | undefined {
+    let userAgent = undefined;
+    try {
+      userAgent = this.context.request.headers['user-agent'];
+    }
+    catch (e) {
+      userAgent = undefined;
+    }
+    return userAgent;
+  }
 
   @post('/users/signup', {
     responses: {
@@ -113,10 +141,10 @@ export class UserController {
     }) credentials: MyUserCredentials,
   ): Promise<TokenObject> {
     const user = await this.userService.verifyCredentials(credentials);
-    const userProfile: UserProfile = this.userService.convertToUserProfile(user);
+    const userProfile = this.userService.convertToUserProfile(user);
     const accessToken = await this.jwtService.generateToken(userProfile);
-    const tokens = await this.refreshService.generateToken(userProfile, accessToken);
-    return tokens;
+    const userAgent = this.getUserAgent();
+    return this.refreshService.generateToken(userProfile, accessToken, userAgent);
   }
 
   @post('/users/refresh', {
@@ -139,10 +167,7 @@ export class UserController {
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(MyUserTokens, {
-            title: 'RefreshToken',
-            exclude: ['accessToken', 'expiresIn']
-          }),
+          schema: RefreshTokenSchema
         },
       },
     }) refreshToken: MyUserTokens,
@@ -172,7 +197,46 @@ export class UserController {
     },
   })
   async me(): Promise<MyUser> {
-    return await this.userService.findUserById(this.userProfile[securityId]);
+    return this.userService.findUserById(this.userProfile[securityId]);
+  }
+
+  @authenticate('jwt')
+  @post('/users/logout', {
+    responses: {
+      '200': {
+        description: 'Logout result',
+        content: {
+          'application/json': {
+            schema: {},
+          },
+        },
+      },
+    },
+  })
+  async logout(
+    @requestBody({
+      content: {
+        'application/json': {
+          schema: RefreshTokenSchema
+        },
+      },
+    }) refreshToken: MyUserTokens,
+  ): Promise<void> {
+    if (refreshToken.refreshToken) {
+      await this.refreshTokenRepository.deleteAll({
+        userId: this.userProfile[securityId],
+        refreshToken: refreshToken.refreshToken
+      });
+    }
+    else {
+      const userAgent = this.getUserAgent();
+      if (userAgent) {
+        await this.refreshTokenRepository.deleteAll({
+          userId: this.userProfile[securityId],
+          userAgent: userAgent
+        });
+      }
+    }
   }
 
 }

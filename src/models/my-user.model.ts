@@ -18,6 +18,8 @@ const emailJsonSchema = {
 
 @model({
   settings: {
+    postgresql: {table: 'user'},
+    mongodb: {collection: "User"},
     hiddenProperties: MY_USER_HIDDEN_FIELDS,
     scope: {
       where: {deleted: false}

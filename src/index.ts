@@ -1,9 +1,9 @@
-import {ApplicationConfig, WakeApiApplication} from './application';
+import {ApplicationConfig, VsApiApplication} from './application';
 
 export * from './application';
 
 export async function main(options: ApplicationConfig = {}) {
-  const app = new WakeApiApplication(options);
+  const app = new VsApiApplication(options);
   await app.boot();
   await app.start();
 

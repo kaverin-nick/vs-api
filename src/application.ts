@@ -17,14 +17,15 @@ import {
 import {ServiceMixin} from '@loopback/service-proxy';
 import path from 'path';
 import {DbDataSource} from './datasources';
-import {MyUserRepository} from './repositories';
+import {MyRefreshTokenRepository, MyUserRepository} from './repositories';
 import {MySequence} from './sequence';
 import {MyUserService} from './services';
+import {MyRefreshTokenService} from './services/my-refreshtoken.service';
 
 
 export {ApplicationConfig};
 
-export class WakeApiApplication extends BootMixin(
+export class VsApiApplication extends BootMixin(
   ServiceMixin(RepositoryMixin(RestApplication)),
 ) {
   constructor(options: ApplicationConfig = {}) {
@@ -52,21 +53,28 @@ export class WakeApiApplication extends BootMixin(
         nested: true,
       },
     };
+
     // Authentication
+
     // Mount authenticationsystem & jwt component
     this.component(AuthenticationComponent);
     this.component(JWTAuthenticationComponent);
-    // Bind datasource
+
+    // Binds for User
     this.dataSource(DbDataSource, UserServiceBindings.DATASOURCE_NAME);
-    this.dataSource(DbDataSource, RefreshTokenServiceBindings.DATASOURCE_NAME);
-    // Bind user service and repository
     this.bind(UserServiceBindings.USER_SERVICE).toClass(MyUserService);
     this.bind(UserServiceBindings.USER_REPOSITORY).toClass(MyUserRepository);
-    // for jwt access token
+
+    // Binds for Token
     this.bind(TokenServiceBindings.TOKEN_SECRET).to("VS-API-SECRET-FOR-TOKEN");
+    this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to('86400'); // 24 часа = 86400
+
+    // Binds for RefreshToken
+    this.dataSource(DbDataSource, RefreshTokenServiceBindings.DATASOURCE_NAME);
+    this.bind(RefreshTokenServiceBindings.REFRESH_TOKEN_SERVICE).toClass(MyRefreshTokenService);
+    this.bind(RefreshTokenServiceBindings.REFRESH_REPOSITORY).toClass(MyRefreshTokenRepository);
     this.bind(RefreshTokenServiceBindings.REFRESH_SECRET).to("VS-API-SECRET-FOR-REFRESH-TOKEN");
-    // for jwt access token expiration
-    //this.bind(TokenServiceBindings.TOKEN_EXPIRES_IN).to("<Expiration Time in sec>");
-    //this.bind(RefreshTokenServiceBindings.REFRESH_EXPIRES_IN).to("<Expiration Time in sec>");
+    this.bind(RefreshTokenServiceBindings.REFRESH_EXPIRES_IN).to("31536000"); // 1 год
+
   }
 }

@@ -1,7 +1,10 @@
-# wake-api
+# vs-api
 
 This application is generated using [LoopBack 4 CLI](https://loopback.io/doc/en/lb4/Command-line-interface.html) with the
 [initial project layout](https://loopback.io/doc/en/lb4/Loopback-application-layout.html).
+
+Added Authentication with custom User and RefreshToken models, services and repositories.
+Created Users controller (covered by tests).
 
 ## Install dependencies
 
