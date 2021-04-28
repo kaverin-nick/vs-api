@@ -1,5 +1,10 @@
 import {TokenService} from '@loopback/authentication';
-import {RefreshTokenServiceBindings, TokenObject, TokenServiceBindings, UserServiceBindings} from '@loopback/authentication-jwt';
+import {
+  RefreshTokenServiceBindings,
+  TokenObject,
+  TokenServiceBindings,
+  UserServiceBindings,
+} from '@loopback/authentication-jwt';
 import {BindingScope, inject, injectable} from '@loopback/core';
 import {repository} from '@loopback/repository';
 import {HttpErrors} from '@loopback/rest';
@@ -29,12 +34,12 @@ export class MyRefreshTokenService {
     public userService: MyUserService,
     @inject(TokenServiceBindings.TOKEN_SERVICE)
     public jwtService: TokenService,
-  ) { }
+  ) {}
 
   async generateToken(
     userProfile: UserProfile,
     token: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<TokenObject> {
     const userId = userProfile[securityId];
     let refreshToken = null;
@@ -43,19 +48,21 @@ export class MyRefreshTokenService {
       const refreshTokenExisting = await this.refreshTokenRepository.findOne({
         where: {
           userId: userId,
-          userAgent: userAgent
-        }
+          userAgent: userAgent,
+        },
       });
       if (refreshTokenExisting) {
         try {
-          await verifyAsync(refreshTokenExisting.refreshToken, this.refreshSecret);
+          await verifyAsync(
+            refreshTokenExisting.refreshToken,
+            this.refreshSecret,
+          );
           refreshToken = refreshTokenExisting.refreshToken;
-        }
-        catch (e) {
+        } catch (e) {
           await this.refreshTokenRepository.deleteAll({
             userId: userId,
             userAgent: userAgent,
-            refreshToken: refreshTokenExisting.refreshToken
+            refreshToken: refreshTokenExisting.refreshToken,
           });
         }
       }
@@ -71,7 +78,7 @@ export class MyRefreshTokenService {
       await this.refreshTokenRepository.create({
         userId: userId,
         refreshToken: refreshToken,
-        userAgent: userAgent
+        userAgent: userAgent,
       });
     }
     return {
@@ -93,11 +100,14 @@ export class MyRefreshTokenService {
       );
       const userProfile = this.userService.convertToUserProfile(user);
       const token = await this.jwtService.generateToken(userProfile);
+      await this.refreshTokenRepository.updateAll(
+        {refreshed: new Date()},
+        {refreshToken: refreshToken},
+      );
       return {
         accessToken: token,
       };
-    }
-    catch (error) {
+    } catch (error) {
       throw new HttpErrors.Unauthorized(
         `Error verifying token : ${error.message}`,
       );
@@ -125,5 +135,4 @@ export class MyRefreshTokenService {
       );
     }
   }
-
 }
